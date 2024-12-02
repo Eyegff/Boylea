@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import TextSendMessage
+from linebot.models import TextSendMessage, MessageEvent, TextMessage
 import requests
 import uuid
 import json
@@ -125,8 +125,4 @@ def handle_message(event):
     else:
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="ไม่เข้าใจคำสั่งของคุณ. ใช้ 'ล็อกอิน' หรือ 'สร้างโค้ด'")
-        )
-
-if __name__ == "__main__":
-    app.run(port=5000)
+            TextSendMessage(text="ไม่
