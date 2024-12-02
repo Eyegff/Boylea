@@ -137,7 +137,7 @@ async function createCode(codeName) {
         };
 
         const payload = {
-            id: 1,
+            id: 5,
             settings: JSON.stringify(settings)
         };
 
