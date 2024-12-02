@@ -3,7 +3,8 @@
 const line = require('@line/bot-sdk');
 const express = require('express');
 const fetch = require('node-fetch'); // ใช้ node-fetch เวอร์ชัน 2
-const { v4: uuidv4 } = require('uuid'); // สำหรับสร้าง UUID
+const { v4: uuidv4 } = require('uuid');
+const { URLSearchParams } = require('url');
 
 // ตั้งค่าบอทไลน์โดยตรงในโค้ด
 const config = {
@@ -24,11 +25,11 @@ app.post('/webhook', line.middleware(config), (req, res) => {
         });
 });
 
-// สถานะของผู้ใช้ในการสร้างโค้ด
-const userStates = new Map();
-
 // ฟังก์ชันจัดการเหตุการณ์
 const client = new line.Client(config);
+
+// แผนที่เก็บสถานะผู้ใช้
+const userStates = new Map();
 
 function handleEvent(event) {
     if (event.type !== 'message' || event.message.type !== 'text') {
@@ -36,46 +37,42 @@ function handleEvent(event) {
         return Promise.resolve(null);
     }
 
-    const userMessage = event.message.text.trim();
     const userId = event.source.userId;
+    const userMessage = event.message.text.trim();
 
     // ตรวจสอบสถานะของผู้ใช้
-    if (userStates.has(userId)) {
-        const state = userStates.get(userId);
-        if (state === 'awaiting_code_name') {
-            // ผู้ใช้ได้ส่งชื่อโค้ดแล้ว
-            const codeName = userMessage;
-            userStates.delete(userId); // ลบสถานะหลังจากได้รับชื่อโค้ด
+    const userState = userStates.get(userId) || {};
 
-            // ตอบกลับว่า กำลังสร้างโค้ด
-            return client.replyMessage(event.replyToken, {
-                type: 'text',
-                text: 'กำลังสร้างโค้ด กรุณารอสักครู่...'
-            }).then(() => {
-                return createVLESSCode(codeName)
-                    .then(vlessUrl => {
-                        return client.pushMessage(userId, {
-                            type: 'text',
-                            text: `นี่คือโค้ดของคุณ:\n${vlessUrl}`
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error creating VLESS code:', error);
-                        return client.pushMessage(userId, {
-                            type: 'text',
-                            text: 'เกิดข้อผิดพลาดในการสร้างโค้ด กรุณาลองใหม่อีกครั้ง'
-                        });
-                    });
+    if (userState.awaitingCodeName) {
+        // ผู้ใช้กำลังรอการตั้งชื่อโค้ด
+        const codeName = userMessage;
+        userStates.set(userId, { awaitingCodeName: false }); // รีเซ็ตสถานะ
+
+        // เริ่มสร้างโค้ด
+        return createCode(codeName)
+            .then(vlessLink => {
+                return client.replyMessage(event.replyToken, {
+                    type: 'text',
+                    text: `กำลังสร้างโค้ด... โปรดรอสักครู่\n\nนี่คือโค้ดของคุณ:\n${vlessLink}`
+                });
+            })
+            .catch(error => {
+                console.error('Error in createCode:', error);
+                return client.replyMessage(event.replyToken, {
+                    type: 'text',
+                    text: 'เกิดข้อผิดพลาดในการสร้างโค้ด'
+                });
             });
-        }
     }
 
     if (userMessage === '/สร้างโค้ด') {
-        // เปลี่ยนสถานะของผู้ใช้เป็นรอชื่อโค้ด
-        userStates.set(userId, 'awaiting_code_name');
+        // ตั้งค่าสถานะผู้ใช้ว่ากำลังรอการตั้งชื่อโค้ด
+        userStates.set(userId, { awaitingCodeName: true });
+
+        // ถามผู้ใช้ให้ตั้งชื่อโค้ด
         return client.replyMessage(event.replyToken, {
             type: 'text',
-            text: 'กรุณาตั้งชื่อโค้ดของคุณ:'
+            text: 'กรุณาตั้งชื่อโค้ดของคุณ'
         });
     } else {
         // ตอบกลับข้อความอื่นๆ
@@ -98,44 +95,39 @@ async function login() {
         redirect: 'follow'
     };
 
-    try {
-        const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/login", requestOptions);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const result = await response.json();
-        console.log('Login response:', result);
-        if (result.success) {
-            return true;
-        } else {
-            throw new Error(result.msg || 'Unknown login error');
-        }
-    } catch (error) {
-        console.error('Error during login:', error);
-        throw error;
+    const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/login", requestOptions);
+    const result = await response.json();
+
+    if (result.success) {
+        console.log('เข้าสู่ระบบสำเร็จ:', result.msg);
+        return true;
+    } else {
+        console.log('เข้าสู่ระบบล้มเหลว:', result.msg);
+        throw new Error('Login failed: ' + result.msg);
     }
 }
 
-// ฟังก์ชันสร้าง VLESS โค้ด
-async function createVLESSCode(codeName) {
+// ฟังก์ชันสร้างโค้ด
+async function createCode(codeName) {
     try {
-        // ทำการล็อกอินก่อนสร้างโค้ด
-        const isLoggedIn = await login();
-        if (!isLoggedIn) {
-            throw new Error('Login failed');
-        }
+        // ล็อกอินก่อนสร้างโค้ด
+        await login();
 
-        const clientId = uuidv4(); // สร้าง UUID แบบสุ่ม
-        const expiryTime = Date.now() + (2 * 60 * 60 * 1000); // อายุ 2 ชั่วโมงในมิลลิวินาที
+        // สร้าง UUID สำหรับ ID ใหม่
+        const newId = uuidv4();
 
+        // ตั้งค่า expiryTime เป็นเวลา 2 ชั่วโมงจากนี้ (มิลลิวินาที)
+        const expiryTime = Date.now() + 2 * 60 * 60 * 1000;
+
+        // สร้าง settings JSON
         const settings = {
             clients: [
                 {
-                    id: clientId,
+                    id: newId,
                     alterId: 0,
-                    email: codeName,
+                    email: "New Client",
                     limitIp: 2,
-                    totalGB: 0, // 0 หมายถึงไม่จำกัด
+                    totalGB: 0, // ไม่จำกัด
                     expiryTime: expiryTime,
                     enable: true,
                     tgId: "",
@@ -144,10 +136,10 @@ async function createVLESSCode(codeName) {
             ]
         };
 
-        const raw = JSON.stringify({
-            id: 5,
+        const payload = {
+            id: 1,
             settings: JSON.stringify(settings)
-        });
+        };
 
         const myHeaders = {
             "Accept": "application/json",
@@ -157,7 +149,7 @@ async function createVLESSCode(codeName) {
         const requestOptions = {
             method: 'POST',
             headers: myHeaders,
-            body: raw,
+            body: JSON.stringify(payload),
             redirect: 'follow'
         };
 
@@ -168,17 +160,17 @@ async function createVLESSCode(codeName) {
         }
 
         const result = await response.json();
-        console.log('Create Client Response:', result);
+        console.log('Add Client response:', result);
 
         if (result.success) {
-            // สร้าง VLESS URL
-            const vlessUrl = `vless://${clientId}@172.64.155.231:80?path=%2F&security=none&encryption=none&host=www.opensignal.com.vipbot.vipv2boxth.xyz&type=ws#${encodeURIComponent(codeName)}`;
-            return vlessUrl;
+            // สร้างลิงก์ VLESS
+            const vlessLink = `vless://${newId}@172.64.155.231:80?path=%2F&security=none&encryption=none&host=www.opensignal.com.vipbot.vipv2boxth.xyz&type=ws#${encodeURIComponent(codeName)}`;
+            return vlessLink;
         } else {
-            throw new Error(result.msg || 'Unknown error while creating VLESS code');
+            throw new Error('Failed to create code: ' + result.msg);
         }
     } catch (error) {
-        console.error('Error in createVLESSCode function:', error);
+        console.error('Error in createCode function:', error);
         throw error;
     }
 }
