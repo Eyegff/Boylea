@@ -2,7 +2,7 @@
 
 const line = require('@line/bot-sdk');
 const express = require('express');
-const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // ใช้ node-fetch เวอร์ชัน 2
 const { URLSearchParams } = require('url');
 
 // ตั้งค่าบอทไลน์โดยตรงในโค้ด
@@ -19,7 +19,7 @@ app.post('/webhook', line.middleware(config), (req, res) => {
         .all(req.body.events.map(handleEvent))
         .then((result) => res.json(result))
         .catch((err) => {
-            console.error(err);
+            console.error('Error in webhook handler:', err);
             res.status(500).end();
         });
 });
@@ -45,7 +45,7 @@ function handleEvent(event) {
                 });
             })
             .catch(error => {
-                console.error(error);
+                console.error('Error in testLogin:', error);
                 return client.replyMessage(event.replyToken, {
                     type: 'text',
                     text: 'เกิดข้อผิดพลาดในการทดสอบการล็อกอิน'
@@ -62,23 +62,34 @@ function handleEvent(event) {
 
 // ฟังก์ชันทดสอบการล็อกอิน
 async function testLogin() {
-    const urlencoded = new URLSearchParams();
-    urlencoded.append("username", "6FocoC0F7a");
-    urlencoded.append("password", "hmSwvyVmAo");
+    try {
+        const urlencoded = new URLSearchParams();
+        urlencoded.append("username", "6FocoC0F7a");
+        urlencoded.append("password", "hmSwvyVmAo");
 
-    const requestOptions = {
-        method: 'POST',
-        body: urlencoded,
-        redirect: 'follow'
-    };
+        const requestOptions = {
+            method: 'POST',
+            body: urlencoded,
+            redirect: 'follow'
+        };
 
-    const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/login", requestOptions);
-    const result = await response.json();
+        const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/login", requestOptions);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    if (result.success) {
-        return 'เข้าสู่ระบบสำเร็จ: ' + result.msg;
-    } else {
-        return 'เข้าสู่ระบบล้มเหลว: ' + result.msg;
+        const result = await response.json();
+        console.log('Login response:', result);
+
+        if (result.success) {
+            return 'เข้าสู่ระบบสำเร็จ: ' + result.msg;
+        } else {
+            return 'เข้าสู่ระบบล้มเหลว: ' + result.msg;
+        }
+    } catch (error) {
+        console.error('Error in testLogin function:', error);
+        throw error; // เพื่อให้ catch ใน handleEvent ทำงาน
     }
 }
 
