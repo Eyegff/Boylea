@@ -1,7 +1,7 @@
 {
   "name": "line-bot-test",
   "version": "1.0.0",
-  "description": "LINE Bot to test login connection",
+  "description": "LINE Bot to create VLESS codes",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,7 +9,8 @@
   "dependencies": {
     "@line/bot-sdk": "^7.7.0",
     "express": "^4.18.2",
-    "node-fetch": "^2.6.7"
+    "node-fetch": "^2.6.7",
+    "uuid": "^9.0.0"
   },
   "engines": {
     "node": ">=14.x"
@@ -21,7 +22,8 @@
   "keywords": [
     "LINE",
     "Bot",
-    "Node.js"
+    "Node.js",
+    "VLESS"
   ],
   "author": "Your Name",
   "license": "MIT"
