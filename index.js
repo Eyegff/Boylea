@@ -86,59 +86,100 @@ function handleEvent(event) {
     }
 }
 
-// ฟังก์ชันสร้าง VLESS โค้ด
-async function createVLESSCode(codeName) {
-    const clientId = uuidv4(); // สร้าง UUID แบบสุ่ม
-    const expiryTime = Date.now() + (2 * 60 * 60 * 1000); // อายุ 2 ชั่วโมงในมิลลิวินาที
-
-    const settings = {
-        clients: [
-            {
-                id: clientId,
-                alterId: 0,
-                email: codeName,
-                limitIp: 2,
-                totalGB: 0, // 0 หมายถึงไม่จำกัด
-                expiryTime: expiryTime,
-                enable: true,
-                tgId: "",
-                subId: ""
-            }
-        ]
-    };
-
-    const raw = JSON.stringify({
-        id: 5,
-        settings: JSON.stringify(settings)
-    });
-
-    const myHeaders = {
-        "Accept": "application/json",
-        "Content-Type": "application/json"
-    };
+// ฟังก์ชันล็อกอิน
+async function login() {
+    const urlencoded = new URLSearchParams();
+    urlencoded.append("username", "6FocoC0F7a");
+    urlencoded.append("password", "hmSwvyVmAo");
 
     const requestOptions = {
         method: 'POST',
-        headers: myHeaders,
-        body: raw,
+        body: urlencoded,
         redirect: 'follow'
     };
 
-    const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/panel/api/inbounds/addClient", requestOptions);
-
-    if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+    try {
+        const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/login", requestOptions);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const result = await response.json();
+        console.log('Login response:', result);
+        if (result.success) {
+            return true;
+        } else {
+            throw new Error(result.msg || 'Unknown login error');
+        }
+    } catch (error) {
+        console.error('Error during login:', error);
+        throw error;
     }
+}
 
-    const result = await response.json();
-    console.log('Create Client Response:', result);
+// ฟังก์ชันสร้าง VLESS โค้ด
+async function createVLESSCode(codeName) {
+    try {
+        // ทำการล็อกอินก่อนสร้างโค้ด
+        const isLoggedIn = await login();
+        if (!isLoggedIn) {
+            throw new Error('Login failed');
+        }
 
-    if (result.success) {
-        // สร้าง VLESS URL
-        const vlessUrl = `vless://${clientId}@172.64.155.231:80?path=%2F&security=none&encryption=none&host=www.opensignal.com.vipbot.vipv2boxth.xyz&type=ws#${encodeURIComponent(codeName)}`;
-        return vlessUrl;
-    } else {
-        throw new Error(result.msg || 'Unknown error');
+        const clientId = uuidv4(); // สร้าง UUID แบบสุ่ม
+        const expiryTime = Date.now() + (2 * 60 * 60 * 1000); // อายุ 2 ชั่วโมงในมิลลิวินาที
+
+        const settings = {
+            clients: [
+                {
+                    id: clientId,
+                    alterId: 0,
+                    email: codeName,
+                    limitIp: 2,
+                    totalGB: 0, // 0 หมายถึงไม่จำกัด
+                    expiryTime: expiryTime,
+                    enable: true,
+                    tgId: "",
+                    subId: ""
+                }
+            ]
+        };
+
+        const raw = JSON.stringify({
+            id: 1,
+            settings: JSON.stringify(settings)
+        });
+
+        const myHeaders = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        };
+
+        const requestOptions = {
+            method: 'POST',
+            headers: myHeaders,
+            body: raw,
+            redirect: 'follow'
+        };
+
+        const response = await fetch("http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/panel/api/inbounds/addClient", requestOptions);
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Create Client Response:', result);
+
+        if (result.success) {
+            // สร้าง VLESS URL
+            const vlessUrl = `vless://${clientId}@172.64.155.231:80?path=%2F&security=none&encryption=none&host=www.opensignal.com.vipbot.vipv2boxth.xyz&type=ws#${encodeURIComponent(codeName)}`;
+            return vlessUrl;
+        } else {
+            throw new Error(result.msg || 'Unknown error while creating VLESS code');
+        }
+    } catch (error) {
+        console.error('Error in createVLESSCode function:', error);
+        throw error;
     }
 }
 
