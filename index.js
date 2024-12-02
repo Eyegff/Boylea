@@ -145,7 +145,7 @@ async function createVLESSCode(codeName) {
         };
 
         const raw = JSON.stringify({
-            id: 1,
+            id: 5,
             settings: JSON.stringify(settings)
         });
 
