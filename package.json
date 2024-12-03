@@ -1,0 +1,17 @@
+{
+  "name": "line-bot",
+  "version": "1.0.0",
+  "description": "LINE bot for logging in",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^7.3.0",
+    "express": "^4.17.1",
+    "request": "^2.88.2"
+  },
+  "engines": {
+    "node": "16.x"
+  }
+}
