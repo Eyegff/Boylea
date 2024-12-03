@@ -32,16 +32,19 @@ async function handleEvent(event) {
       type: 'text',
       text: 'กรุณาตั้งชื่อโค้ดของคุณ'
     });
-  } else if (event.replyToken) { 
-    const codeName = event.message.text; 
-    return client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: 'กำลังสร้างโค้ด...'
-    }).then(() => {
-      const clientId = uuidv4(); 
-      const expiryTime = Date.now() + (2 * 60 * 60 * 1000); 
+  } else if (event.replyToken) {
+    const codeName = event.message.text;
+    const loadingMessage = await client.replyMessage(event.replyToken, {
+      type: 'image',
+      originalContentUrl: 'https://postimg.cc/0bdG8YFT', // URL ของ GIF "กำลังสร้างโค้ด..."
+      previewImageUrl: 'https://postimg.cc/0bdG8YFT'
+    });
 
-      const loginOptions = { 
+    setTimeout(async () => {
+      const clientId = uuidv4();
+      const expiryTime = Date.now() + (2 * 60 * 60 * 1000);
+
+      const loginOptions = {
         'method': 'POST',
         'url': 'http://www.opensignal.com.vipbot.vipv2boxth.xyz:2053/0UnAOmjQ1vIaSIr/login',
         'headers': {},
@@ -51,14 +54,16 @@ async function handleEvent(event) {
         }
       };
 
-      return request(loginOptions, function (loginError, loginResponse) {
-        if (loginError) {
-          console.error(loginError);
-          return client.pushMessage(event.source.userId, { 
-            type: 'text',
-            text: 'ล็อกอินล้มเหลว'
+      try {
+        await new Promise((resolve, reject) => {
+          request(loginOptions, (error, response) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(response);
+            }
           });
-        }
+        });
 
         const addClientOptions = {
           'method': 'POST',
@@ -67,29 +72,38 @@ async function handleEvent(event) {
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            "id": 5,
+            "id": 1,
             "settings": `{\"clients\":[{\"id\":\"${clientId}\",\"alterId\":0,\"email\":\"${clientId}\",\"limitIp\":2,\"totalGB\":42949672960,\"expiryTime\":${expiryTime},\"enable\":true,\"tgId\":\"\",\"subId\":\"\"}]}`
           })
         };
 
-        return request(addClientOptions, function (addClientError, addClientResponse) {
-          if (addClientError) {
-            console.error(addClientError);
-            return client.pushMessage(event.source.userId, {
-              type: 'text',
-              text: 'สร้างโค้ดล้มเหลว'
-            });
-          }
-
-          const vlessCode = `vless://${clientId}@172.64.155.231:80?path=%2F&security=none&encryption=none&host=www.opensignal.com.vipbot.vipv2boxth.xyz&type=ws#${codeName}`;
-
-          return client.pushMessage(event.source.userId, { 
-            type: 'text',
-            text: `นี้โค้ดของคุณ:\n${vlessCode}`
+        await new Promise((resolve, reject) => {
+          request(addClientOptions, (error, response) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve(response);
+            }
           });
         });
-      });
-    });
+
+        const vlessCode = `vless://${clientId}@172.64.155.231:80?path=%2F&security=none&encryption=none&host=www.opensignal.com.vipbot.vipv2boxth.xyz&type=ws#${codeName}`;
+
+        await client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: `นี้โค้ดของคุณ:\n${vlessCode}`
+        });
+      } catch (error) {
+        console.error(error);
+        await client.pushMessage(event.source.userId, {
+          type: 'text',
+          text: 'เกิดข้อผิดพลาดในการสร้างโค้ด'
+        });
+      } finally {
+        client.revokeMessage(loadingMessage.id);
+      }
+    }, 4000);
+
   } else {
     return Promise.resolve(null);
   }
