@@ -67,7 +67,7 @@ async function handleEvent(event) {
             'Accept': 'application/json'
           },
           body: JSON.stringify({
-            "id": 1,
+            "id": 5,
             "settings": `{\"clients\":[{\"id\":\"${clientId}\",\"alterId\":0,\"email\":\"${clientId}\",\"limitIp\":2,\"totalGB\":42949672960,\"expiryTime\":${expiryTime},\"enable\":true,\"tgId\":\"\",\"subId\":\"\"}]}`
           })
         };
